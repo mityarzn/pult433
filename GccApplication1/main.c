@@ -52,11 +52,11 @@ static inline void send_bit(void)
 ISR(PCINT0_vect)
 {
 	// check what pin changed and do things
-	if        (PINB & _BV(PINB0)) {
+	if        (!(PINB & _BV(PINB0))) {
 		button = 1;
-	} else if (PINB & _BV(PINB1)) {
+	} else if (!(PINB & _BV(PINB1))) {
 		button = 2;
-	} else if (PINB & _BV(PINB2)) {
+	} else if (!(PINB & _BV(PINB2))) {
 		button = 3;
 	} else {
 		button = 0;
@@ -64,7 +64,7 @@ ISR(PCINT0_vect)
 	if (button) {
 		bit_to_send = 0;
 		rnd = (0xa3 * rnd) % 254 + 1;
-		next_send_tick += rnd % 66; //wait upto 3 seconds before start sending
+		next_send_tick = tick_counter + (rnd << 5); //wait upto 3 seconds before start sending (0-255 times 32-tick periods)
 		send_counter = 22; //22 sends are 1 second
 		set_sleep_mode(SLEEP_MODE_IDLE); // to allow timer run
 		// Disable this interrupt
@@ -83,24 +83,26 @@ ISR(TIM0_COMPA_vect)
 	if (send_counter && tick_counter >= next_send_tick) 
 		send_bit();
 
-	/*if (!send_counter) {
+	if (!send_counter) {
 		// we sent all, disable transmitter, set heaviest sleep mode and enable PCINT till next button press
 		PORTB &= ~(_BV(PORTB4));
 		set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 		GIMSK |= _BV(PCIE);
-	}*/
+	}
 	sei();
 }
 
 
-static void setup(void)
+static inline void setup(void)
 {
 	cli();
-	OSCCAL = 50;
+	OSCCAL = 60;
 
 	DDRB = (1<<DDB3)|(1<<DDB4); // pin 2 and 3 out
 	// pin 3 is Vcc for transmitter
 	//PORTB = _BV(PORTB4);
+	// Pullups on button pins
+	PORTB = (1<<PORTB0)|(1<<PORTB1)|(1<<PORTB2);
 	
 	//set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 	set_sleep_mode(SLEEP_MODE_IDLE);
