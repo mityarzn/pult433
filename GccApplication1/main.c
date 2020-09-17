@@ -12,11 +12,10 @@
 #include <stdint.h>
 
 volatile uint8_t send_counter = 0;
-volatile uint32_t tick_counter = 0;
+volatile uint16_t tick_counter = 0;
 volatile uint8_t bit_to_send = 0;
-volatile uint32_t next_send_tick = 1000;
+volatile uint16_t next_send_tick = 1000;
 volatile uint8_t button = 0; // 0-none, 1-left, 2-center, 3-right
-volatile uint8_t rnd = 45;
 
 const uint32_t sendaddrs[] = {3820897, 3820898, 3820900};
 
@@ -30,6 +29,12 @@ static inline void send_bit(void)
 			{
 				bit_to_send = 0;
 				send_counter--;
+				if (!send_counter) {
+					// We had sent all. Disable transmitter, reset button number
+					button = 0;
+					PORTB &= ~(_BV(PORTB4));
+				}
+
 			}
 		} else {
 			PORTB |= _BV(PORTB3);
@@ -47,27 +52,19 @@ static inline void send_bit(void)
 	}
 }
 
-
+/*
 ISR(PCINT0_vect)
 {
 
 }
+*/
 
 // In CTC mode once when TIMSK0 == OCR0A
 ISR(TIM0_COMPA_vect)
 {
-	cli();
 	++tick_counter;
 	if (button && send_counter && tick_counter >= next_send_tick) 
 		send_bit();
-
-	if (!send_counter) {
-		// We had sent all. Disable transmitter, reset button number and set heaviest sleep mode until next button press
-		button = 0;
-		PORTB &= ~(_BV(PORTB4));
-		set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-	}
-	sei();
 }
 
 
@@ -78,9 +75,9 @@ static inline void setup(void)
 
 	DDRB = _BV(DDB3)|_BV(DDB4); // pin 2 and 3 out
 	// Pullups on button pins
-	PORTB = _BV(PORTB0)|_BV(PORTB1)|_BV(PORTB2);
+	//PORTB = _BV(PORTB0)|_BV(PORTB1)|_BV(PORTB2);
 	
-	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+	set_sleep_mode(SLEEP_MODE_IDLE);
 	// Set timer to CTC mode
 	TCCR0A = _BV(WGM01);
 	// Set prescaler to 8
@@ -91,25 +88,26 @@ static inline void setup(void)
 	TIMSK0 = _BV(OCIE0A);
 	
 	// Enable interrupt on pins 5, 6, 7 change
-	PCMSK = _BV(PCINT0)|_BV(PCINT1)|_BV(PCINT2);
+	//PCMSK = _BV(PCINT0)|_BV(PCINT1)|_BV(PCINT2);
 	// Enable PC Interrupt
-	GIMSK = _BV(PCIE);
+	//GIMSK = _BV(PCIE);
 
 	sei();
 }
 
 int main(void)
 {
+	uint8_t rnd = 45;
 	setup();
 	while (1) {
 		cli();
 		if (!button) {
 			// check what pin changed and do things
-			if        (!(PINB & _BV(PINB0))) {
+			if        ((PINB & _BV(PINB0))) {
 				button = 1;
-			} else if (!(PINB & _BV(PINB1))) {
+			} else if ((PINB & _BV(PINB1))) {
 				button = 2;
-			} else if (!(PINB & _BV(PINB2))) {
+			} else if ((PINB & _BV(PINB2))) {
 				button = 3;
 			} else {
 				button = 0;
@@ -117,7 +115,12 @@ int main(void)
 		}
 		if (button && (!send_counter)) {
 			bit_to_send = 0;
-			rnd = (0xa3 * rnd) % 254 + 1;
+			rnd = (0xa3 * rnd * (uint8_t) tick_counter) + 1;
+			// prevent overflow on wait for send
+			if (tick_counter > 0xff00)
+			{
+				tick_counter = 0;
+			}
 			next_send_tick = tick_counter + ((uint32_t) rnd << 5); //wait up to 3 seconds before start sending (0-255 times 32-tick periods)
 			send_counter = 22; //22 sends are 1 second
 			set_sleep_mode(SLEEP_MODE_IDLE); // to allow timer run
