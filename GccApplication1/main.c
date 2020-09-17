@@ -121,7 +121,7 @@ int main(void)
 			{
 				tick_counter = 0;
 			}
-			next_send_tick = tick_counter + ((uint32_t) rnd << 5); //wait up to 3 seconds before start sending (0-255 times 32-tick periods)
+			next_send_tick = tick_counter + ((uint16_t) rnd << 5); //wait up to 3 seconds before start sending (0-255 times 32-tick periods)
 			send_counter = 22; //22 sends are 1 second
 			set_sleep_mode(SLEEP_MODE_IDLE); // to allow timer run
 			PORTB |= _BV(PORTB4); // powerup radio
