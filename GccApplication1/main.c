@@ -32,7 +32,7 @@ static inline void send_bit(void)
 				if (!send_counter) {
 					// We had sent all. Disable transmitter, reset button number
 					button = 0;
-					PORTB &= ~(_BV(PORTB4));
+					PORTB |= _BV(PORTB4);
 				}
 
 			}
@@ -76,6 +76,7 @@ static inline void setup(void)
 	DDRB = _BV(DDB3)|_BV(DDB4); // pin 2 and 3 out
 	// Pullups on button pins
 	//PORTB = _BV(PORTB0)|_BV(PORTB1)|_BV(PORTB2);
+	PORTB |= _BV(PORTB4); // power key is inverted. Disable by default.
 	
 	set_sleep_mode(SLEEP_MODE_IDLE);
 	// Set timer to CTC mode
@@ -124,7 +125,7 @@ int main(void)
 			next_send_tick = tick_counter + ((uint16_t) rnd << 5); //wait up to 3 seconds before start sending (0-255 times 32-tick periods)
 			send_counter = 22; //22 sends are 1 second
 			set_sleep_mode(SLEEP_MODE_IDLE); // to allow timer run
-			PORTB |= _BV(PORTB4); // powerup radio
+			PORTB &= ~_BV(PORTB4); // powerup radio
 		}
 		sei();
 		sleep_mode();
