@@ -138,10 +138,7 @@ int main(void)
 			bit_to_send = 0;
 			rnd = (0xa3 * rnd * (uint8_t) tick_counter) + 1;
 			// prevent overflow on wait for send
-			if (tick_counter > 0xff00)
-			{
-				tick_counter = 0;
-			}
+			tick_counter = 0;
 			next_send_tick = tick_counter + ((uint16_t) rnd << 5); //wait up to 3 seconds before start sending (0-255 times 32-tick periods)
 			send_counter = 22; //22 sends are 1 second
 			set_sleep_mode(SLEEP_MODE_IDLE); // to allow timer run
