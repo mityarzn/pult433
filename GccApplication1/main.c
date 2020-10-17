@@ -19,12 +19,32 @@ volatile uint8_t button = 0; // 0-none, 1-left, 2-center, 3-right
 
 const uint32_t sendaddrs[] = {3820897, 3820898, 3820900};
 
+static inline uint8_t selectaddr(void)
+{
+	uint8_t idx;
+	if (button == 2) { // Special behavior for middle button: 5 sends right, 12 both, 5 left
+		if (send_counter >= 18) {
+			idx = 3;
+		} else if (send_counter >= 6)	{
+			idx = 2;
+		} else {
+			idx = 1;
+		}
+	} else if (button == 1) {
+		idx = 1;
+	} else {
+		idx = 3;
+	}
+	return idx;
+}
+
 static inline void send_bit(void)
 {
 	if (bit_to_send) {
+		uint8_t idx = selectaddr();
 		if (PORTB & _BV(PORTB3)) {
 			PORTB &= ~_BV(PORTB3);
-			next_send_tick += (((sendaddrs[button-1] << (bit_to_send-1)) & 0x800000) > 0)?1:3;
+			next_send_tick += (((sendaddrs[idx] << (bit_to_send-1)) & 0x800000) > 0)?1:3;
 			if (++bit_to_send > 24)
 			{
 				bit_to_send = 0;
@@ -38,7 +58,7 @@ static inline void send_bit(void)
 			}
 		} else {
 			PORTB |= _BV(PORTB3);
-			next_send_tick += (((sendaddrs[button-1] << (bit_to_send-1)) & 0x800000) > 0)?3:1;
+			next_send_tick += (((sendaddrs[idx] << (bit_to_send-1)) & 0x800000) > 0)?3:1;
 		}
 	} else { // sync bit
 		if (PORTB & _BV(PORTB3)) {
